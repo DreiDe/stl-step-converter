@@ -1,0 +1,52 @@
+html, body {
+  height: 100%;
+  font-weight: 700;
+  overflow: hidden;
+}
+
+#message{
+  display: inline-block;
+  width: 100%;
+}
+
+#messageText{
+  float: left;
+}
+
+#actionButtons{
+  float: right;
+  display: none;
+}
+
+.file-label{
+  width: 100%;
+  text-align: center;
+}
+
+.file-name{
+  max-width: 100%;
+}
+
+#renderView{
+  position: relative;
+  min-height: 200px;
+}
+
+.container{
+  padding: 1.5rem;
+}
+
+.infoText{
+  bottom: 0;
+  font-weight: 200;
+}
+
+.fixed{
+  position: fixed;
+}
+
+.absolute{
+  padding: 10px;
+  right: 0;
+  position: absolute;
+}

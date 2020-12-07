@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="utf-8">
+
+  <title>STL STEP Konverter (Beta)</title>
+
+  <!-- Scripts -->
+  <script>
+    delete module.exports
+  </script>
+  <script src="js/jquery-3.2.1.js"></script>
+  <script src="js/three.js"></script>
+  <script src="js/STLLoader.js"></script>
+  <script src="js/OrbitControls.js"></script>
+  <link rel="stylesheet" href="css/bulma.min.css">
+  <link rel="stylesheet" href="css/fontawesome.min.css">
+  <link rel="stylesheet" href="css/solid.min.css">
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+
+<body class="has-background-info">
+  <div class="container">
+    <section>
+      <div class="notification is-primary" id="message">
+        <p id="messageText">
+          Um mit der Konvertierung zu beginnen wählen Sie als erstes eine <b>STL</b> Datei aus. Anschließend müssen Sie
+          den
+          Ausgabeordner festlegen, bevor dann der Button "Konvertieren" betätigt werden kann.
+        </p>
+        <div id="actionButtons">
+          <button class="button is-info" id="continue">
+            <span class="icon">
+              <i class="fas fa-sync"></i>
+            </span>
+            <span>Überschreiben</span>
+          </button>
+          <button class="button" id="stop">
+            <span class="icon">
+              <i class="fas fa-times"></i>
+            </span>
+            <span>Abbrechen</span>
+          </button>
+        </div>
+      </div>
+      <div class="columns is-mobile">
+        <div class="column is-half">
+          <div class="field">
+            <div class="file is-centered is-boxed is-success has-name">
+              <label class="file-label">
+                <input class="file-input" type="file" id="fileinput">
+                <span class="file-cta">
+                  <span class="file-label">
+                    <div>
+                      <span class="icon is-medium">
+                        <i class="fas fa-cube"></i>
+                      </span>
+                      <span>STL Datei auswählen</span>
+                    </div>
+                  </span>
+                </span>
+                <span id="fileLabel" class="file-name has-background-white">
+                </span>
+              </label>
+            </div>
+          </div>
+        </div>
+        <div class="column is-half">
+          <div class="field">
+            <div class="file is-centered is-boxed is-warning has-name">
+              <label class="file-label">
+                <input class="file-input" type="file" id="folderinput" webkitdirectory directory>
+                <span class="file-cta">
+                  <span class="file-label">
+                    <div>
+                      <span class="icon is-medium">
+                        <i class="fas fa-folder-open"></i>
+                      </span>
+                      <span>Ausgabeordner festlegen</span>
+                    </div>
+                  </span>
+                </span>
+                <span id="folderLabel" class="file-name has-background-white">
+                </span>
+              </label>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div id="renderView">
+        <p class="infoText absolute">Modell wurde passend skaliert</p>
+      </div>
+      <br>
+      <button id="convert" class="button is-fullwidth is-large is-primary">
+        <span class="icon is-medium">
+          <i class="fas fa-exchange-alt"></i>
+        </span>
+        <span>Konvertieren</span>
+      </button>
+    </section>
+    <p class="infoText fixed">©Copyright 3d-convert.com</p>
+  </div>
+  <script src="js/Loader.js"></script>
+  <script>
+    const child = require('child_process').execFile;
+    const fs = require('fs');
+    const Store = require('electron-store');
+
+    const schema = {
+      fileName: {
+        type: 'string',
+        default: 'Keine Datei'
+      },
+      filePath: {
+        type: 'string'
+      },
+      folderPath: {
+        type: 'string',
+        default: 'Kein Ordner'
+      }
+    };
+
+    const store = new Store({ schema });
+
+    let executablePath = __dirname + '/../extraResources/stltostp.exe';
+
+    function updateFile() {
+      $("#fileLabel").html(store.get("fileName"));
+      load(store.get("filePath"), scene);
+    }
+
+    function updateFolder() {
+      $("#folderLabel").html(store.get("folderPath"));
+    }
+
+    function msg(mode, message, action = false) {
+      $("#message").removeClass("is-primary is-danger is-success");
+
+      if (mode === "error") $("#message").addClass("is-danger");
+      if (mode === "success") $("#message").addClass("is-success");
+      if (mode === "default") $("#message").addClass("is-primary");
+
+      $("#messageText").html(message);
+
+      if (action === true) $("#actionButtons").show();
+      else $("#actionButtons").hide();
+    }
+
+    function validate(fileName, inputPath, outputPath, convert) {
+      fs.access(inputPath, (err) => {
+        if (err) {
+          msg("error", "Die gewähle STL Datei wurde gelöscht oder verschoben.");
+          return;
+        }
+        else {
+          fs.access(store.get("folderPath"), (err) => {
+            if (err) {
+              msg("error", "Der Ausgabeordner wurde gelöscht oder verschoben.");
+              return;
+            }
+            else {
+              fs.access(outputPath, (err) => {
+                if (err) {
+                  convert(true);
+                }
+                else {
+                  msg("error", "Es existiert bereits eine Datei " + fileName + ".stp" + " im Zielordner.", true);
+                  $("#continue").on("click", function () {
+                    convert(true);
+                  });
+                  $("#stop").on("click", function () {
+                    msg("default", 'Um mit der Konvertierung zu beginnen wählen Sie als erstes eine <b>STL</b> Datei aus. Anschließend müssen Sie den Ausgabeordner festlegen, bevor dann der Button "Konvertieren" betätigt werden kann.');
+                    return;
+                  });
+                }
+              });
+            }
+          });
+        }
+      });
+    }
+
+    $("#fileinput").on("change", function () {
+      let file = $("#fileinput")[0].files[0];
+      let name = file.name;
+      let path = file.path;
+      let extension = name.split('.').pop().toUpperCase();
+
+      if (extension === "STL") {
+        store.set('fileName', name);
+        store.set('filePath', path);
+        updateFile();
+        msg("success", `Die Datei ${name} wurde erfolgreich geladen.`);
+      }
+      else {
+        msg("error", `Bitte wählen Sie eine <b>STL</b> Datei aus. ${extension} Dateien werden nicht unterstützt.`);
+      }
+    });
+
+    $("#folderinput").on("change", function () {
+      let path = $("#folderinput")[0].files[0].path;
+      store.set('folderPath', path);
+      updateFolder();
+    });
+
+    $("#convert").on("click", function () {
+      let fileName = store.get("fileName").replace(/\.[^/.]+$/, "");
+      let inputPath = store.get("filePath");
+      let outputPath = store.get("folderPath") + "\\" + fileName + ".stp"
+      let parameters = [inputPath, outputPath];
+
+      validate(fileName, inputPath, outputPath, function (success) {
+        if (success === true) {
+          child(executablePath, parameters, function (err, data) {
+            if (data.toString().includes("Exported")) {
+              msg("success", "Die Umwandlung wurde erfolgreich abgeschlossen.");
+            }
+            else {
+              msg("error", "Beim Export ist ein unerwarteter Fehler aufgetreten.");
+            }
+          });
+        }
+      });
+    });
+
+    updateFile();
+    updateFolder();
+  </script>
+</body>
+
+</html>
